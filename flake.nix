@@ -3,13 +3,47 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    arion = {
+      url = "github:nix-community/arion";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs }: {
+  outputs =
+    {
+      self,
+      inputs,
+      nixpkgs,
+      arion,
+      ...
+    }:
+    let
+      system = "x86_64-linux";
+      pkgs = import nixpkgs { inherit system; };
+      inherit (self) outputs;
 
-    packages.x86_64-linux.hello = nixpkgs.legacyPackages.x86_64-linux.hello;
+    in
+    {
+      envModule = import ./env.nix;
+      devShells.${system}.twenty = pkgs.mkShell {
+        packages = with pkgs; [
+          docker-client
+          docker-compose
+          arion
+          postgresql_16
+          redis
+        ];
+        specialArgs = {
+          inherit inputs;
+          inherit outputs;
+          inherit arion;
+        };
+        modules = [
+          ./arion.nix
+        ];
+        shellHook = ''
 
-    packages.x86_64-linux.default = self.packages.x86_64-linux.hello;
-
-  };
+        '';
+      };
+    };
 }
